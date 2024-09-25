@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// @import url('https://fonts.googleapis.com/css2?family=Recursive:wght@300..1000&display=swap');
+
+// body{
+//     font-family: 'Recursive', sans-serif;
+// }
+
+button, a{
+    transition: all .3s ease-in-out !important;
+}
+
+$primary-color: #3e6989;
+
+button{
+    padding: 1rem;
+    border-radius: 50px;
+    color: white;
+    background-color: $primary-color;
+}
+
+textarea::placeholder, input::placeholder{
+    color: black;
+}
