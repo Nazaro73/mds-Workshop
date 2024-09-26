@@ -41,10 +41,10 @@
                 type="submit"
                 class="button-search absolute bottom-0 right-0 flex justify-center items-center bg-xlinks-secondary-200 text-black text-xl rounded-full h-[32px] w-[32px]"
               >
-                <span v-if="loading">
+                <span v-if="loading" class="flex">
                   <span class="loading loading-dots loading-sm"></span>
                 </span>
-                <span v-else>
+                <span v-else class="flex">
                   <Icon name="tabler:arrow-up"></Icon>
                 </span>
               </button>
@@ -140,18 +140,22 @@ onMounted(async () => {
 });
 
 const onSubmit = () => {
-  loading.value = true; // Start loading
+  if (loading.value) {
+    return; // Empêcher une nouvelle soumission tant que le chargement est en cours
+  }
+
+  loading.value = true; // Démarrer le chargement
   const searchContainer = document.getElementById("search-container");
 
-  // Simulate fetching results or an API call
+  // Simuler la récupération des résultats ou un appel API
   setTimeout(() => {
-    loading.value = false; // Stop loading after results are ready
-  }, 3000); // Simulate a 3-second delay for fetching results
-
-  if (searchContainer) {
-    searchContainer.classList.remove("focus-search");
-    searchContainer.style.marginTop = "20px";
-  }
+    loading.value = false; // Arrêter le chargement une fois les résultats prêts
+    
+    if (searchContainer) {
+      searchContainer.classList.remove("focus-search");
+      searchContainer.style.marginTop = "20px";
+    }
+  }, 3000); // Simuler un délai de 3 secondes pour la récupération des résultats
 };
 
 // If focus search is active, lock the scroll

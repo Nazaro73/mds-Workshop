@@ -17,7 +17,7 @@
       <p
         class="mt-3 text-base text-black sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0"
         data-aos="fade-in"
-        data-aos-delay="1500"
+        data-aos-delay="1250"
         data-aos-duration="800"
       >
         XLINKS révolutionne la mise en relation entre repreneurs et cédants
@@ -27,12 +27,12 @@
       <div
         class="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start"
         data-aos="fade-in"
-        data-aos-delay="1800"
+        data-aos-delay="1600"
         data-aos-duration="800"
       >
         <div class="rounded-full shadow">
           <NuxtLink
-            to="Acquereur"
+            to="acquereur"
             class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-full text-white bg-xlinks-500 hover:bg-xlinks-secondary-200 hover:text-black md:py-4 md:text-lg md:px-10"
           >
             Je suis acquéreur
@@ -40,7 +40,7 @@
         </div>
         <div class="mt-3 sm:mt-0 sm:ml-3">
           <NuxtLink
-            to="#"
+            to="cedant"
             class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-full text-black bg-xlinks-secondary-200 hover:bg-xlinks-600 hover:text-white md:py-4 md:text-lg md:px-10"
           >
             Je suis cédant
