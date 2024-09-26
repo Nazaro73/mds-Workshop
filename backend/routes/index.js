@@ -7,7 +7,7 @@ const { Op } = require("sequelize");
 const router = express.Router();
 router.use(bodyParser.json());
 
-const openaiApiKey = process.env.OPENAI_API_KEY || "your-api-key";
+const openaiApiKey = process.env.OPENAI_API_KEY ;
 
 // Fonction pour interroger l'API de ChatGPT
 const getChatGPTResponse = async (text) => {
@@ -134,5 +134,30 @@ router.get("/acquereurs", async (req, res) => {
     return res.status(500).json({ status: "error", reason: error.message });
   }
 });
+
+//Route Post /cedeurs 
+
+router.post("/cedeurs", async (req, res) => { 
+  const { text } = req.body;
+
+  if (!text) {
+    return res
+      .status(400)
+      .json({ status: "missing", reason: "Le champ texte est requis." });
+  }
+
+  try {
+    const chatResponse = await getChatGPTResponse(text); // Appel à l'API OpenAI pour extraire les informations
+    const result = checkFields(chatResponse); // Vérification des champs extraits
+    // Add to the database
+    const cedeur = await Cedeur.create(result.data);
+    return res.json({ status: "success", data: cedeur, result });
+  } catch (error) {
+    return res.status(500).json({ status: "error", reason: error.message });
+  }
+});
+
+// Route Get aquereurs 
+
 
 module.exports = router;
