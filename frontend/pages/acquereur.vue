@@ -1,107 +1,178 @@
 <template>
-  <div>
-    <div class="flex justify-center" id="search-container-parent">
+  <div class="flex justify-center" id="search-container-parent">
+    <div
+      class="flex justify-center items-center h-fit focus-search mx-auto"
+      id="search-container"
+    >
       <div
-        class="flex justify-center items-center h-fit focus-search mx-auto"
-        id="search-container"
+        class="container mx-auto bg-xlinks-500 rounded-lg p-14"
+        data-aos="fade-up"
       >
-        <div
-          class="container mx-auto bg-xlinks-500 rounded-lg p-14"
-          data-aos="fade-up"
-        >
+        <!-- Formulaire et discussion dans la même section -->
+        <div class="form-and-chat">
           <form @submit.prevent="onSubmit">
             <h1 class="text-center font-bold text-white text-4xl">
               Quelle entreprise recherchez-vous ?
             </h1>
             <p class="mx-auto font-normal text-sm my-6 text-white">
-              Veuillez fournir les informations suivantes pour nous aider à
-              mieux comprendre votre profil et vos besoins. Cela inclut vos
-              coordonnées complètes, le type d'acquéreur que vous êtes, les
-              secteurs d'activité qui vous intéressent, le nombre de
-              collaborateurs que vous recherchez, les localisations
-              géographiques souhaitées, ainsi que le chiffre d'affaires moyen
-              des deux dernières années. N'oubliez pas d'inclure toutes autres
-              informations pertinentes telles que votre calendrier, les fonds
-              disponibles pour une acquisition, et tout autre élément important
-              pour votre recherche d'entreprise.
+              Veuillez fournir des informations complètes pour que nous
+              puissions valider votre demande.
             </p>
+            <!-- Chat-style conversation -->
+            <section class="conversation my-6">
+              <div
+                v-for="(message, index) in messages"
+                :key="index"
+                class="chat-message"
+                :class="{
+                  'user-message': message.type === 'user',
+                  'system-message': message.type === 'system',
+                }"
+              >
+                <p>{{ message.content }}</p>
+              </div>
+            </section>
             <div
-              class="relative sm:flex items-center bg-white rounded-lg overflow-hidden min-h-[58px] px-2 py-1 justify-between"
+              class="relative sm:flex items-end bg-white rounded-lg overflow-hidden min-h-[58px] px-2 py-1 justify-between"
             >
               <textarea
                 ref="inputField"
                 class="text-[16px] text-black flex-grow outline-none h-[50px] resize-none"
-                placeholder="Je recherche une entreprise qui..."
+                placeholder="Décrivez votre recherche d'entreprise..."
                 @input="autoResize"
                 @keydown="handleKeyDown"
                 @focus="focusSearch"
               ></textarea>
-
-              <button
-                type="submit"
-                class="button-search absolute bottom-0 right-0 flex justify-center items-center bg-xlinks-500 text-black text-xl rounded-full h-[32px] w-[32px]"
-              >
-                <span v-if="loading" class="flex">
-                  <span class="loading loading-dots loading-sm text-white"></span>
-                </span>
-                <span v-else class="flex">
-                  <Icon name="tabler:arrow-up" style="color: white;"</Icon>
-                </span>
-              </button>
+              <div class="flex items-end">
+                <button
+                  type="submit"
+                  class="button-search flex justify-center items-center bg-xlinks-500 text-black text-xl rounded-full h-[32px] w-[32px]"
+                >
+                  <span v-if="loading" class="flex">
+                    <span
+                      class="loading loading-dots loading-sm text-white"
+                    ></span>
+                  </span>
+                  <span v-else class="flex">
+                    <Icon name="tabler:arrow-up" style="color: white" />
+                  </span>
+                </button>
+              </div>
             </div>
+
+            <!-- Afficher le message d'erreur si des champs sont manquants -->
+            <p v-if="errorMessage" class="text-red-500 mt-2">
+              {{ errorMessage }}
+            </p>
           </form>
         </div>
       </div>
     </div>
-    <section
-      class="results max-w-7xl w-full mx-auto flex justify-center items-start"
-    >
-      <!-- Show a loader while loading -->
-      <div v-if="loading" class="flex justify-center">
-        <span class="loading loading-dots loading-lg"></span>
-      </div>
-
-      <!-- Show results when loading is finished -->
-      <div v-else>
-        <!-- Your results will be here -->
-        <div
-          class="flex gap-5 md:gap-8 rounded-sm border-xlinks-600 border-[1px] border-solid w-full p-6 mx-auto"
-          data-aos="fade-in"
-        >
-          <div class="w-fit">
-            <Icon name="et:profile-male" size="30px"></Icon>
-          </div>
-          <div class="w-3/5">
-            <h2 class="text-2xl font-bold">Entreprneur individuel</h2>
-            <h3 class="text-lg font-bold">Chiffre d'affaire : 3,5k €</h3>
-            <p>
-              Lorem ipsum dolor, sit amet consectetur adipisicing elit.
-              Corrupti, vitae magni. Sunt ipsam ipsum dolor! Quos numquam non
-              optio, quod accusantium natus itaque deserunt, enim necessitatibus
-              nesciunt architecto vero ratione! Itaque corporis eligendi nihil.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
   </div>
 </template>
 
-<style scoped>
+<script setup>
+import { ref, onMounted } from "vue";
+import AOS from "aos";
+import axios from "axios";
 
-body:has(.focus-search) {
-  overflow: hidden;
-}
+const inputField = ref(null);
+const loading = ref(false);
+const messages = ref([]);
+const errorMessage = ref(""); // Pour stocker les messages d'erreur
+const apiUrl = "http://127.0.0.1:8000/ask"; // L'URL de votre API backend
 
-#search-container {
-  transition: all 0.3s ease-in-out;
-  transform: translateY(0) scale(0.7);
-  transform-origin: top;
-}
+onMounted(() => {
+  AOS.init();
+});
 
-.button-search {
-  bottom: calc((25px + 0.25rem) / 2);
-  right: calc((25px + 0.25rem) / 2);
+const onSubmit = async () => {
+  if (loading.value) {
+    return; // Empêcher une nouvelle soumission tant que le chargement est en cours
+  }
+
+  loading.value = true; // Démarrer le chargement
+  errorMessage.value = ""; // Réinitialiser les messages d'erreur avant une nouvelle soumission
+  const userText = inputField.value.value;
+
+  if (!userText.trim()) {
+    errorMessage.value = "Veuillez décrire votre recherche.";
+    loading.value = false;
+    return;
+  }
+
+  // Ajouter le message de l'utilisateur à la conversation
+  messages.value.push({ type: "user", content: userText });
+
+  // Appel à l'API backend pour valider et extraire les informations
+  try {
+    const response = await axios.post(apiUrl, { text: userText });
+
+    if (response.data.status === "success") {
+      // Ajouter un message de validation réussi si tous les champs sont valides
+      messages.value.push({
+        type: "system",
+        content: "Votre demande a été validée et enregistrée avec succès.",
+      });
+    } else if (response.data.status === "missing") {
+      // Ajouter un message de validation échouée si des champs sont manquants
+      const missingFields = response.data.missingFields;
+      const missingMessage = `Veuillez renseigner ${missingFields.length > 1 ? 'ces informations' : 'cette information'} : ${missingFields.join(", ")}`;
+      messages.value.push({ type: "system", content: missingMessage });
+    }
+  } catch (error) {
+    // Si le backend retourne une erreur, on récupère le message pour l'afficher
+    if (error.response && error.response.data && error.response.data.reason) {
+      messages.value.push({
+        type: "system",
+        content: `Erreur: ${error.response.data.reason}`,
+      });
+    } else {
+      messages.value.push({
+        type: "system",
+        content: "Erreur lors de l'enregistrement de votre demande.",
+      });
+    }
+  }
+
+  loading.value = false; // Arrêter le chargement
+};
+
+// Ajuster la hauteur du textarea
+const autoResize = () => {
+  const textarea = inputField.value;
+  if (textarea) {
+    textarea.style.height = "50px"; // Set the base height
+    if (textarea.value.trim()) {
+      textarea.style.height = textarea.scrollHeight + "px"; // Set dynamic height based on content
+    }
+  }
+};
+
+// Gestion de la touche Enter pour soumettre
+const handleKeyDown = (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault(); // Empêcher la soumission du formulaire avec Enter
+    onSubmit();
+  }
+};
+
+// Focus sur le champ de recherche
+const focusSearch = () => {
+  const searchContainer = document.getElementById("search-container");
+  if (searchContainer) {
+    searchContainer.classList.add("focus-search");
+  }
+};
+</script>
+
+<style lang="scss" scoped>
+$primary-color: #3e6989;
+$secondary-color: #cae8ff;
+/* Section pour form et messages ensemble */
+.form-and-chat {
+  max-width: 700px;
+  margin: 0 auto;
 }
 
 .focus-search {
@@ -111,11 +182,40 @@ body:has(.focus-search) {
   position: absolute;
 }
 
+.button-search {
+  bottom: calc((25px + 0.25rem) / 2);
+  right: calc((25px + 0.25rem) / 2);
+}
+
+/* Chat-style conversation */
+.conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.chat-message {
+  padding: 10px;
+  border-radius: 10px;
+  max-width: 60%;
+}
+
+.user-message {
+  background-color: #ececec;
+  align-self: flex-end;
+  text-align: right;
+}
+
+.system-message {
+  background-color: $secondary-color;
+  color: black;
+  align-self: flex-start;
+  text-align: left;
+}
+
 textarea {
-  overflow-y: hidden;
-  resize: none;
-  height: 50px;
-  height: auto; /* Let JS handle height adjustments */
+  height: auto;
   padding: calc(25px / 2);
 }
 
@@ -127,77 +227,3 @@ textarea {
   z-index: 8;
 }
 </style>
-
-<script setup>
-import { ref, onMounted } from "vue";
-import AOS from "aos";
-import "aos/dist/aos.css";
-
-const inputField = ref(null);
-const loading = ref(false);
-
-onMounted(async () => {
-  AOS.init();
-});
-
-const onSubmit = () => {
-  if (loading.value) {
-    return; // Empêcher une nouvelle soumission tant que le chargement est en cours
-  }
-
-  loading.value = true; // Démarrer le chargement
-  const searchContainer = document.getElementById("search-container");
-
-  // Simuler la récupération des résultats ou un appel API
-  setTimeout(() => {
-    loading.value = false; // Arrêter le chargement une fois les résultats prêts
-    
-    if (searchContainer) {
-      searchContainer.classList.remove("focus-search");
-      searchContainer.style.marginTop = "20px";
-    }
-  }, 3000); // Simuler un délai de 3 secondes pour la récupération des résultats
-};
-
-// Adjust the height of the textarea
-const autoResize = () => {
-  const textarea = inputField.value;
-  if (textarea) {
-    textarea.style.height = "50px"; // Set the base height
-    if (textarea.value.trim()) {
-      textarea.style.height = textarea.scrollHeight + "px"; // Set dynamic height based on content
-    }
-  }
-};
-
-
-// Handle "Shift + Enter" to avoid form submission
-const handleKeyDown = (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault(); // Prevent form submission with Enter
-    onSubmit();
-  }
-};
-
-// Add focus class if user clicks on the textarea
-const focusSearch = () => {
-  const searchContainer = document.getElementById("search-container");
-  if (searchContainer) {
-    searchContainer.classList.add("focus-search");
-    searchContainer.style.marginTop = "15vh";
-  }
-};
-
-// Reset the container if user returns to the input field after form submission
-onMounted(() => {
-  const searchContainer = document.getElementById("search-container");
-  if (searchContainer) {
-    searchContainer.classList.add("focus-search");
-    searchContainer.style.marginTop = "15vh";
-  }
-});
-
-onMounted(() => {
-  autoResize(); // Ensure the textarea height is correct on load
-});
-</script>

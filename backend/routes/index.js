@@ -7,7 +7,7 @@ const { Op } = require("sequelize");
 const router = express.Router();
 router.use(bodyParser.json());
 
-const openaiApiKey = process.env.OPENAI_API_KEY ;
+const openaiApiKey = process.env.OPENAI_API_KEY || "your-api-key";
 
 // Fonction pour interroger l'API de ChatGPT
 const getChatGPTResponse = async (text) => {
@@ -43,7 +43,10 @@ const getChatGPTResponse = async (text) => {
 
   try {
     const response = await axios(config);
-    console.error("Réponse de l'API OpenAI :", response.data.choices[0].message.content);
+    console.error(
+      "Réponse de l'API OpenAI :",
+      response.data.choices[0].message.content
+    );
     let messageContent = response.data.choices[0].message.content;
     // Remove ```json from the response content and the last ```
     messageContent = messageContent.replace("```json", "").replace("```", "");
@@ -77,7 +80,6 @@ const normalizeKeys = (data) => {
 // Fonction pour vérifier les champs dans le JSON renvoyé par l'IA
 const checkFields = (extractedData) => {
   const requiredFields = ["nom", "prenom", "societe", "email"];
-
   let missingFields = [];
 
   // Normaliser les données extraites
@@ -85,7 +87,6 @@ const checkFields = (extractedData) => {
 
   // Vérifier directement les champs extraits par l'IA
   requiredFields.forEach((field) => {
-    // Vérifie si la clé existe et si sa valeur n'est pas vide, null ou undefined
     if (!normalizedData[field] || normalizedData[field].trim() === "") {
       missingFields.push(field);
     }
@@ -97,7 +98,8 @@ const checkFields = (extractedData) => {
       missingFields.length > 0
         ? `Champs manquants: ${missingFields.join(", ")}`
         : "Tous les champs requis sont présents.",
-    data: extractedData,
+    missingFields, // Renvoie la liste des champs manquants
+    data: normalizedData,
   };
 };
 
@@ -106,21 +108,35 @@ router.post("/ask", async (req, res) => {
   const { text } = req.body;
 
   if (!text) {
-    return res
-      .status(400)
-      .json({ status: "missing", reason: "Le champ texte est requis." });
+    return res.status(400).json({
+      status: "missing",
+      reason: "Le champ texte est requis.",
+    });
   }
 
   try {
     const chatResponse = await getChatGPTResponse(text); // Appel à l'API OpenAI pour extraire les informations
     const result = checkFields(chatResponse); // Vérification des champs extraits
-    // Add to the database
+
+    // Si des champs sont manquants, renvoyer les détails des champs manquants
+    if (result.status === "missing") {
+      return res.status(200).json({
+        status: "missing",
+        reason: result.reason,
+        missingFields: result.missingFields || [], // Ajout d'une sécurité pour s'assurer que missingFields est toujours présent
+      });
+    }
+
+    // Si tous les champs sont remplis, ajouter l'acquéreur à la base de données
     const acquereur = await Acquereur.create(result.data);
-    return res.json({ status: "success", data: acquereur, result });
-
-
-
+    return res.json({
+      status: "success",
+      message:
+        "Tous les champs sont corrects et l'acquéreur a été enregistré avec succès.",
+      data: acquereur,
+    });
   } catch (error) {
+    console.error("Erreur serveur:", error);
     return res.status(500).json({ status: "error", reason: error.message });
   }
 });
@@ -135,9 +151,9 @@ router.get("/acquereurs", async (req, res) => {
   }
 });
 
-//Route Post /cedeurs 
+//Route Post /cedeurs
 
-router.post("/cedeurs", async (req, res) => { 
+router.post("/cedeurs", async (req, res) => {
   const { text } = req.body;
 
   if (!text) {
@@ -156,10 +172,5 @@ router.post("/cedeurs", async (req, res) => {
     return res.status(500).json({ status: "error", reason: error.message });
   }
 });
-
-// Route associative 
-
- 
-
 
 module.exports = router;
