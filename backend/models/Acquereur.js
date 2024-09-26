@@ -17,7 +17,23 @@ const Acquereur = sequelize.define('Acquereur', {
     email: {
         type: DataTypes.STRING,
         allowNull: false
-    }
+    },
+    codeNaf: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    tailleEffectif: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    localisation: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    niveauCA: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
 });
 
 module.exports = Acquereur;

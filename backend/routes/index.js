@@ -157,7 +157,9 @@ router.post("/cedeurs", async (req, res) => {
   }
 });
 
-// Route Get aquereurs 
+// Route associative 
+
+ 
 
 
 module.exports = router;
