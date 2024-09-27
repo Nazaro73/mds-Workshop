@@ -1,53 +1,65 @@
 <template>
-  <div>
-    <div class="flex justify-center" id="search-container-parent">
+  <div class="flex justify-center flex-wrap" id="search-container-parent">
+    <div
+      class="flex justify-center items-center h-fit focus-search mx-auto mb-24"
+      id="search-container"
+    >
       <div
-        class="flex justify-center items-center h-fit focus-search mx-auto"
-        id="search-container"
+        class="container mx-auto bg-xlinks-secondary-200 rounded-lg p-14"
+        data-aos="fade-up"
       >
-        <div
-          class="container mx-auto bg-xlinks-secondary-200 rounded-lg p-14"
-          data-aos="fade-up"
-        >
+        <!-- Formulaire et discussion dans la même section -->
+        <div class="form-and-chat">
           <form @submit.prevent="onSubmit">
             <h1 class="text-center font-bold text-black text-4xl">
               Parlez-nous de votre entreprise
             </h1>
             <p class="mx-auto font-normal text-sm my-6 text-black">
-              Veuillez fournir les informations suivantes pour nous aider à
-              mieux comprendre votre profil et vos besoins. Cela inclut vos
-              coordonnées complètes, le type d'acquéreur que vous êtes, les
-              secteurs d'activité qui vous intéressent, le nombre de
-              collaborateurs que vous recherchez, les localisations
-              géographiques souhaitées, ainsi que le chiffre d'affaires moyen
-              des deux dernières années. N'oubliez pas d'inclure toutes autres
-              informations pertinentes telles que votre calendrier, les fonds
-              disponibles pour une acquisition, et tout autre élément important
-              pour votre recherche d'entreprise.
+              Veuillez fournir des informations complètes sur votre entreprise
+              pour que nous puissions valider votre profil.
             </p>
+            <section class="conversation my-6">
+              <div v-if="errorMessage" class="chat-message system-message">
+                <p>{{ errorMessage }}</p>
+              </div>
+              <div
+                v-for="(message, index) in messages"
+                :key="index"
+                class="chat-message"
+                :class="{
+                  'user-message': message.type === 'user',
+                  'system-message': message.type === 'system',
+                }"
+              >
+                <p>{{ message.content }}</p>
+              </div>
+            </section>
             <div
-              class="sm:flex items-center relative bg-white rounded-lg overflow-hidden min-h-[58px] px-2 py-1 justify-between"
+              class="relative sm:flex items-end bg-white rounded-lg overflow-hidden min-h-[58px] px-2 py-1 justify-between"
             >
               <textarea
                 ref="inputField"
                 class="text-[16px] text-black flex-grow outline-none h-[50px] resize-none"
-                placeholder="Je suis une entreprise qui..."
+                placeholder="Décrivez votre entreprise..."
                 @input="autoResize"
                 @keydown="handleKeyDown"
                 @focus="focusSearch"
               ></textarea>
-
-              <button
-                type="submit"
-                class="button-search absolute bottom-0 right-0 flex justify-center items-center bg-xlinks-secondary-200 text-black text-xl rounded-full h-[32px] w-[32px]"
-              >
-                <span v-if="loading" class="flex">
-                  <span class="loading loading-dots loading-sm"></span>
-                </span>
-                <span v-else class="flex">
-                  <Icon name="tabler:arrow-up"></Icon>
-                </span>
-              </button>
+              <div class="flex items-end">
+                <button
+                  type="submit"
+                  class="button-search flex justify-center items-center bg-xlinks-secondary-200 text-black text-xl rounded-full h-[32px] w-[32px]"
+                >
+                  <span v-if="loading" class="flex">
+                    <span
+                      class="loading loading-dots loading-sm text-black"
+                    ></span>
+                  </span>
+                  <span v-else class="flex">
+                    <Icon name="tabler:arrow-up" style="color: black" />
+                  </span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -62,9 +74,9 @@
       </div>
 
       <!-- Show results when loading is finished -->
-      <div v-else>
+      <div v-else class="mb-12">
         <!-- Your results will be here -->
-        <h2 class="text-3xl font-bold text-black mt-10">
+        <h2 class="text-3xl font-bold text-black my-10">
           Résultats de votre recherche :
         </h2>
         <div
@@ -90,7 +102,129 @@
   </div>
 </template>
 
-<style scoped>
+<script setup>
+import { ref, onMounted } from "vue";
+import AOS from "aos";
+import axios from "axios";
+
+const inputField = ref(null);
+const loading = ref(false);
+const messages = ref([]);
+const errorMessage = ref(""); // Pour stocker les messages d'erreur
+const apiUrl = "http://127.0.0.1:2000/cedeurs"; // L'URL de votre API backend pour les cédants
+
+onMounted(() => {
+  AOS.init();
+});
+
+const onSubmit = async () => {
+  if (loading.value) return;
+
+  loading.value = true;
+  errorMessage.value = "";
+  const userText = inputField.value.value;
+
+  // Simple validation: Ensure the input field is not empty
+  if (!userText.trim()) {
+    errorMessage.value = "Veuillez décrire votre entreprise.";
+    loading.value = false;
+    return;
+  }
+
+  // Add validation to check for required fields in the input
+  const requiredFields = ["nom", "prenom", "societe", "email"];
+  const inputFields = userText.split(/\s+/); // Split the user input by spaces (or any other delimiter)
+  const missingFields = [];
+
+  // Check if required fields are present
+  requiredFields.forEach((field) => {
+    if (!inputFields.includes(field)) {
+      missingFields.push(field);
+    }
+  });
+
+  if (missingFields.length > 0) {
+    errorMessage.value = `Veuillez renseigner ces informations : ${missingFields.join(
+      ", "
+    )}`;
+    loading.value = false;
+    return;
+  }
+
+  // If all fields are valid, send the request
+  messages.value.push({ type: "user", content: userText });
+
+  try {
+    const response = await axios.post(apiUrl, { text: userText });
+
+    if (response.data.status === "success") {
+      messages.value.push({
+        type: "system",
+        content: "Votre demande a été validée et enregistrée avec succès.",
+      });
+    } else if (response.data.status === "missing") {
+      const missingFields = response.data.missingFields;
+      const missingMessage = `Veuillez renseigner ${
+        missingFields.length > 1 ? "ces informations" : "cette information"
+      } : ${missingFields.join(", ")}`;
+      messages.value.push({ type: "system", content: missingMessage });
+    }
+  } catch (error) {
+    if (error.response && error.response.data && error.response.data.reason) {
+      messages.value.push({
+        type: "system",
+        content: `Erreur: ${error.response.data.reason}`,
+      });
+    } else {
+      messages.value.push({
+        type: "system",
+        content: "Erreur lors de l'enregistrement de votre demande.",
+      });
+    }
+  }
+
+  loading.value = false;
+
+  let searchContainer = document.getElementById("search-container");
+
+  if (searchContainer) {
+    searchContainer.classList.remove("focus-search");
+  }
+};
+
+// Ajuster la hauteur du textarea
+const autoResize = () => {
+  const textarea = inputField.value;
+  if (textarea) {
+    textarea.style.height = "50px"; // Set the base height
+    if (textarea.value.trim()) {
+      textarea.style.height = textarea.scrollHeight + "px"; // Set dynamic height based on content
+    }
+  }
+};
+
+// Gestion de la touche Enter pour soumettre
+const handleKeyDown = (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault(); // Empêcher la soumission du formulaire avec Enter
+    onSubmit();
+  }
+};
+
+// Focus sur le champ de recherche
+const focusSearch = () => {
+  const searchContainer = document.getElementById("search-container");
+  if (searchContainer) {
+    searchContainer.classList.add("focus-search");
+  }
+};
+
+
+</script>
+
+<style lang="scss" scoped>
+$primary-color: #3e6989;
+$secondary-color: #cae8ff;
 
 #search-container {
   transition: all 0.3s ease-in-out;
@@ -98,23 +232,51 @@
   transform-origin: top;
 }
 
-.button-search {
-  bottom: calc((25px + 0.25rem) / 2);
-  right: calc((25px + 0.25rem) / 2);
+/* Section pour form et messages ensemble */
+.form-and-chat {
+  max-width: 700px;
+  margin: 0 auto;
 }
 
 .focus-search {
   margin-top: 15vh;
   transform: scale(1) !important;
   width: max-content;
-  position: absolute;
+}
+
+.button-search {
+  bottom: calc((25px + 0.25rem) / 2);
+  right: calc((25px + 0.25rem) / 2);
+}
+
+/* Chat-style conversation */
+.conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.chat-message {
+  padding: 10px;
+  border-radius: 10px;
+  max-width: 60%;
+}
+
+.user-message {
+  background-color: #ececec;
+  align-self: flex-end;
+  text-align: right;
+}
+
+.system-message {
+  background-color: $primary-color;
+  color: white;
+  align-self: flex-start;
+  text-align: left;
 }
 
 textarea {
-  overflow-y: hidden;
-  resize: none;
-  height: 50px;
-  height: auto; /* Let JS handle height adjustments */
   padding: calc(25px / 2);
 }
 
@@ -126,86 +288,3 @@ textarea {
   z-index: 8;
 }
 </style>
-
-<script setup>
-import { ref, onMounted } from "vue";
-import AOS from "aos";
-import "aos/dist/aos.css";
-
-const inputField = ref(null);
-const loading = ref(false);
-
-onMounted(async () => {
-  AOS.init();
-});
-
-const onSubmit = () => {
-  if (loading.value) {
-    return; // Empêcher une nouvelle soumission tant que le chargement est en cours
-  }
-
-  loading.value = true; // Démarrer le chargement
-  const searchContainer = document.getElementById("search-container");
-
-  // Simuler la récupération des résultats ou un appel API
-  setTimeout(() => {
-    loading.value = false; // Arrêter le chargement une fois les résultats prêts
-    
-    if (searchContainer) {
-      searchContainer.classList.remove("focus-search");
-      searchContainer.style.marginTop = "20px";
-    }
-  }, 3000); // Simuler un délai de 3 secondes pour la récupération des résultats
-};
-
-// If focus search is active, lock the scroll
-const lockScroll = () => {
-    document.body.style.overflow = "hidden";
-};
-
-const unlockScroll = () => {
-    document.body.style.overflow = "";
-};
-
-
-// Adjust the height of the textarea
-const autoResize = () => {
-  const textarea = inputField.value;
-  if (textarea) {
-    textarea.style.height = "50px"; // Set the base height
-    if (textarea.value.trim()) {
-      textarea.style.height = textarea.scrollHeight + "px"; // Set dynamic height based on content
-    }
-  }
-};
-
-// Handle "Shift + Enter" to avoid form submission
-const handleKeyDown = (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault(); // Prevent form submission with Enter
-    onSubmit();
-  }
-};
-
-// Add focus class if user clicks on the textarea
-const focusSearch = () => {
-  const searchContainer = document.getElementById("search-container");
-  if (searchContainer) {
-    searchContainer.classList.add("focus-search");
-    searchContainer.style.marginTop = "15vh";
-  }
-};
-
-// Reset the container if user returns to the input field after form submission
-onMounted(() => {
-  const searchContainer = document.getElementById("search-container");
-  if (searchContainer) {
-    searchContainer.classList.add("focus-search");
-    searchContainer.style.marginTop = "15vh";
-  }
-});
-
-onMounted(() => {
-  autoResize(); // Ensure the textarea height is correct on load
-});
-</script>

@@ -20,19 +20,19 @@ const Cedeur = sequelize.define('Cedeur', {
     },
     codeNaf: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     tailleEffectif: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     localisation: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     niveauCA: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
 });
 

@@ -80,7 +80,7 @@ const inputField = ref(null);
 const loading = ref(false);
 const messages = ref([]);
 const errorMessage = ref(""); // Pour stocker les messages d'erreur
-const apiUrl = "http://127.0.0.1:8000/ask"; // L'URL de votre API backend
+const apiUrl = "http://127.0.0.1:2000/new-acquereur"; // L'URL de votre API backend
 
 onMounted(() => {
   AOS.init();
@@ -215,7 +215,6 @@ $secondary-color: #cae8ff;
 }
 
 textarea {
-  height: auto;
   padding: calc(25px / 2);
 }
 

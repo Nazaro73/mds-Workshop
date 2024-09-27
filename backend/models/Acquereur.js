@@ -18,22 +18,10 @@ const Acquereur = sequelize.define('Acquereur', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    // codeNaf: {
-    //     type: DataTypes.STRING,
-    //     allowNull: false
-    // },
-    // tailleEffectif: {
-    //     type: DataTypes.STRING,
-    //     allowNull: false
-    // },
-    // localisation: {
-    //     type: DataTypes.STRING,
-    //     allowNull: false
-    // },
-    // niveauCA: {
-    //     type: DataTypes.STRING,
-    //     allowNull: false
-    // },
+    secteur: { // Ajout du champ secteur
+        type: DataTypes.STRING,
+        allowNull: true // Le secteur peut ne pas être obligatoire
+    }
 });
 
 module.exports = Acquereur;
