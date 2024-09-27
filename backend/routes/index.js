@@ -66,6 +66,63 @@ const getChatGPTResponse = async (text) => {
   }
 };
 
+//Fonction qui permet grace a l'IA de retourner les info qu'a rentré l'acquéreur
+const getAcquerreurChatGPTResponse = async (text) => {
+  const data = JSON.stringify({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content:
+          "Veuillez extraire les informations suivantes d'un texte donné: nom, prenom, email, societe, phone, secteur, localisation, investissement. Retournez les résultats dans un format JSON avec les attributs suivants : 'nom', 'prenom', 'email', 'societe', 'phone', 'secteur', 'localisation', 'investissement'. Ne repondez que en json.",
+      },
+      {
+        role: "user",
+        content: text,
+      },
+    ],
+    temperature: 0.7,
+    max_tokens: 250,
+    top_p: 1,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+  });
+
+  const config = {
+    method: "post",
+    url: "https://api.openai.com/v1/chat/completions",
+    headers: {
+      Authorization: `Bearer ${openaiApiKey}`,
+      "Content-Type": "application/json",
+    },
+    data: data,
+  };
+
+  try {
+    const response = await axios(config);
+    console.error(
+      "Réponse de l'API OpenAI :",
+      response.data.choices[0].message.content
+    );
+    let messageContent = response.data.choices[0].message.content;
+    // Remove ```json from the response content and the last ```
+    messageContent = messageContent.replace("```json", "").replace("```", "");
+
+    // Essayer de parser la réponse comme un JSON
+    try {
+      const parsedContent = JSON.parse(messageContent);
+      return parsedContent;
+    } catch (error) {
+      throw new Error("La réponse n'est pas un JSON valide.");
+    }
+  } catch (error) {
+    console.error(
+      "Erreur avec l'API OpenAI :",
+      error.response ? error.response.data : error.message
+    );
+  }
+};
+
 // Fonction pour normaliser les clés de l'objet (mettre les clés en minuscules, etc.)
 const normalizeKeys = (data) => {
   const normalizedData = {};
@@ -85,6 +142,42 @@ const normalizeKeys = (data) => {
 // Fonction pour vérifier les champs dans le JSON renvoyé par l'IA
 const checkFields = (extractedData) => {
   const requiredFields = ["nom", "prenom", "societe", "email", "secteur"];
+  let missingFields = [];
+
+  // Normaliser les données extraites
+  const normalizedData = normalizeKeys(extractedData);
+
+  // Vérifier directement les champs extraits par l'IA
+  requiredFields.forEach((field) => {
+    if (!normalizedData[field] || normalizedData[field].trim() === "") {
+      missingFields.push(field);
+    }
+  });
+
+  return {
+    status: missingFields.length > 0 ? "missing" : "Ok",
+    reason:
+      missingFields.length > 0
+        ? `Champs manquants: ${missingFields.join(", ")}`
+        : "Tous les champs requis sont présents.",
+    missingFields, // Renvoie la liste des champs manquants
+    data: normalizedData,
+  };
+};
+
+// Fonction pour vérifier les champs dans le JSON renvoyé par l'IA
+const checkFieldsAcquerreur = (extractedData) => {
+  const requiredFields = [
+    "nom",
+    "prenom",
+    "societe",
+    "email",
+    "phone",
+    "secteur",
+    "localisation",
+    "investissement",
+  ];
+
   let missingFields = [];
 
   // Normaliser les données extraites
@@ -257,6 +350,77 @@ router.post("/cedeurs", async (req, res) => {
     const cedeur = await Cedeur.create(result.data);
     return res.json({ status: "success", data: cedeur });
   } catch (error) {
+    return res.status(500).json({ status: "error", reason: error.message });
+  }
+});
+
+// Route POST /searchCedant
+router.post("/searchCedant", async (req, res) => {
+  const { text } = req.body;
+
+  if (!text) {
+    return res.status(400).json({
+      status: "missing",
+      reason: "Le champ texte est requis.",
+    });
+  }
+
+  try {
+    const chatResponse = await getAcquerreurChatGPTResponse(text); // Appel à l'API OpenAI pour extraire les informations
+    const result = checkFieldsAcquerreur(chatResponse); // Vérification des champs extraits
+
+    // Si des champs sont manquants, renvoyer les détails des champs manquants
+    if (result.status === "missing") {
+      return res.status(200).json({
+        status: "missing",
+        reason: result.reason,
+        missingFields: result.missingFields || [],
+      });
+    }
+
+    // Si tous les champs sont remplis, ajouter l'acquéreur à la base de données
+    const acquereur = await Acquereur.create(result.data);
+
+    // Rechercher des cédants dans la base de données en fonction des critères
+    const whereClause = {};
+
+    // Ajout de la condition pour secteur si elle existe
+    if (result.data.secteur) {
+      whereClause.secteur = { [Op.like]: `%${result.data.secteur}%` }; // Recherche floue sur le secteur
+    }
+
+    // Ajout de la condition pour localisation si elle existe
+    if (result.data.localisation) {
+      whereClause.localisation = { [Op.like]: `%${result.data.localisation}%` };
+    }
+
+    // Ajout de la condition pour niveauCA si elle existe et que l'investissement est défini
+    if (result.data.investissement) {
+      whereClause.niveauCA = { [Op.lte]: result.data.investissement }; // Moins ou égal à l'investissement
+    }
+
+    // Exécution de la requête si la clause where n'est pas vide
+    const cedeur = await Cedeur.findAll({
+      where: whereClause,
+    });
+    // Si aucune entreprise ne correspond
+    if (cedeur.length === 0) {
+      return res.json({
+        status: "success",
+        message: "Aucun cédant trouvé pour ces critères.",
+        data: [],
+        acquereur,
+      });
+    }
+
+    // Retourner la liste des cédants trouvés
+    return res.json({
+      status: "success",
+      data: cedeur,
+      acquereur, // Retourner également les informations enregistrées de l'acquéreur
+    });
+  } catch (error) {
+    console.error("Erreur serveur:", error);
     return res.status(500).json({ status: "error", reason: error.message });
   }
 });
